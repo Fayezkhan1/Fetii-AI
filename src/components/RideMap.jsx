@@ -1,8 +1,7 @@
-import React from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl, useMap } from 'react-leaflet'
+import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 
-// Fix for default markers in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -10,7 +9,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 })
 
-// Get category-specific colors
 const getCategoryColor = (category) => {
   const colors = {
     'Music Venue': '#9b59b6',
@@ -30,27 +28,26 @@ const getCategoryColor = (category) => {
   return colors[category] || '#95a5a6'
 }
 
-// Create custom icons based on visit frequency and category
-const createCustomIcon = (visits, category) => {
+const createCustomIcon = (visits) => {
   const getColor = (visits) => {
-    if (visits >= 200) return '#e74c3c' // Red for very high traffic
-    if (visits >= 150) return '#f39c12' // Orange for high traffic
-    if (visits >= 100) return '#f1c40f' // Yellow for medium-high
-    if (visits >= 50) return '#3498db'  // Blue for medium
-    return '#95a5a6' // Gray for low traffic
+    if (visits >= 200) return '#e74c3c'
+    if (visits >= 150) return '#f39c12'
+    if (visits >= 100) return '#f1c40f'
+    if (visits >= 50) return '#3498db'
+    return '#95a5a6'
   }
 
   const getSize = (visits) => {
-    if (visits >= 200) return [35, 35]
-    if (visits >= 150) return [30, 30]
-    if (visits >= 100) return [25, 25]
-    if (visits >= 50) return [20, 20]
-    return [16, 16]
+    if (visits >= 200) return [50, 50]
+    if (visits >= 150) return [45, 45]
+    if (visits >= 100) return [40, 40]
+    if (visits >= 50) return [35, 35]
+    return [30, 30]
   }
 
   const color = getColor(visits)
   const [width, height] = getSize(visits)
-  const fontSize = width > 25 ? '11px' : width > 20 ? '10px' : '8px'
+  const fontSize = width > 40 ? '14px' : width > 35 ? '13px' : width > 30 ? '12px' : '11px'
   
   return L.divIcon({
     className: 'custom-marker',
@@ -74,25 +71,69 @@ const createCustomIcon = (visits, category) => {
   })
 }
 
-function RideMap({ locations = [] }) {
-  // Austin city center coordinates
-  const austinCenter = [30.2672, -97.7431]
-  
-  console.log('🗺️ RideMap received locations:', locations)
-  console.log('📊 Number of locations:', locations.length)
-  
-  // Log each location structure
-  locations.forEach((location, index) => {
-    console.log(`📍 Location ${index}:`, {
-      name: location.name,
-      address: location.address,
-      visits: location.visits,
-      lat: location.lat,
-      lng: location.lng,
-      category: location.category,
-      hasValidCoords: !!(location.lat && location.lng)
+// Component to handle map focusing and zoom control cleanup
+function MapController({ locations, selectedMarkerId, onMarkerFocus, markerRefs }) {
+  const map = useMap()
+
+  useEffect(() => {
+    // Remove any existing zoom controls from top-left
+    const zoomControls = document.querySelectorAll('.leaflet-control-zoom')
+    zoomControls.forEach(control => {
+      if (control.parentElement?.classList.contains('leaflet-top') && 
+          control.parentElement?.classList.contains('leaflet-left')) {
+        control.remove()
+      }
     })
-  })
+  }, [])
+
+  useEffect(() => {
+    if (locations && locations.length > 0) {
+      // Focus on the first marker when new locations are loaded
+      const firstLocation = locations[0]
+      if (firstLocation.lat && firstLocation.lng) {
+        map.setView([firstLocation.lat, firstLocation.lng], 14, {
+          animate: true,
+          duration: 1
+        })
+        // Don't call onMarkerFocus here - let App.jsx handle the selection
+      }
+    }
+  }, [locations, map])
+
+  useEffect(() => {
+    // Focus on selected marker when selectedMarkerId changes
+    if (selectedMarkerId !== null && locations && locations[selectedMarkerId]) {
+      const selectedLocation = locations[selectedMarkerId]
+      if (selectedLocation.lat && selectedLocation.lng) {
+        // Close all existing popups first
+        markerRefs.current.forEach(marker => {
+          if (marker) {
+            marker.closePopup()
+          }
+        })
+        
+        map.setView([selectedLocation.lat, selectedLocation.lng], 15, {
+          animate: true,
+          duration: 0.8
+        })
+        
+        // Open popup for selected marker after a short delay
+        setTimeout(() => {
+          const marker = markerRefs.current[selectedMarkerId]
+          if (marker) {
+            marker.openPopup()
+          }
+        }, 1000) // Wait for map animation to complete
+      }
+    }
+  }, [selectedMarkerId, locations, map])
+
+  return null
+}
+
+function RideMap({ locations = [], selectedMarkerId, onMarkerFocus }) {
+  const austinCenter = [30.2672, -97.7431]
+  const markerRefs = useRef([])
   
   return (
     <MapContainer
@@ -100,27 +141,55 @@ function RideMap({ locations = [] }) {
       zoom={11}
       style={{ height: '100%', width: '100%' }}
       maxBounds={[
-        [30.0000, -98.0000], // Southwest corner
-        [30.6000, -97.4000]  // Northeast corner
+        [30.0000, -98.0000],
+        [30.6000, -97.4000]
       ]}
       minZoom={10}
       maxZoom={16}
+      zoomControl={false}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       
-
+      <MapController 
+        locations={locations} 
+        selectedMarkerId={selectedMarkerId}
+        onMarkerFocus={onMarkerFocus}
+        markerRefs={markerRefs}
+      />
+      <ZoomControl position="bottomleft" />
       
-      {/* Location markers */}
       {locations.map((location, index) => (
         <Marker
           key={index}
+          ref={(ref) => {
+            markerRefs.current[index] = ref
+          }}
           position={[location.lat, location.lng]}
-          icon={createCustomIcon(location.visits, location.category)}
+          icon={createCustomIcon(location.visits)}
+          eventHandlers={{
+            click: () => {
+              if (onMarkerFocus) {
+                onMarkerFocus(index)
+              }
+            },
+            mouseover: (e) => {
+              // Close all other popups first
+              markerRefs.current.forEach((marker, idx) => {
+                if (marker && idx !== index) {
+                  marker.closePopup()
+                }
+              })
+              e.target.openPopup()
+            },
+            mouseout: (e) => {
+              e.target.closePopup()
+            }
+          }}
         >
-          <Popup>
+          <Popup closeButton={false} autoClose={false} closeOnClick={false}>
             <div className="location-popup">
               <h3>{location.name || 'Location'}</h3>
               <p style={{ margin: '0.5rem 0', color: '#666', fontSize: '0.9rem' }}>

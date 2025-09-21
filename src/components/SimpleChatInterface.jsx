@@ -1,0 +1,285 @@
+import { useState, useEffect } from 'react'
+
+function SimpleChatInterface({ onMessageSent, isAnalyzing }) {
+  
+  // Clean up any old fetch interceptors on mount
+  useEffect(() => {
+    // Restore original fetch if it was intercepted
+    if (window.originalFetch) {
+      window.fetch = window.originalFetch
+      delete window.originalFetch
+    }
+    
+    // Clean up any old n8n chat instances
+    if (window.n8nChatInstance) {
+      delete window.n8nChatInstance
+    }
+    
+    // Clean up any old message handlers
+    if (window.messageHandler) {
+      delete window.messageHandler
+    }
+    
+    console.log('🧹 Cleaned up old chat components')
+  }, [])
+  const [message, setMessage] = useState('')
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      type: 'bot',
+      text: 'Hi! Ask me about Austin ride data. I can show you locations on the map and create charts.',
+      timestamp: new Date()
+    }
+  ])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!message.trim() || isAnalyzing) return
+
+    const currentMessage = message
+    
+    // Clear input immediately and add user message
+    setMessage('')
+    const userMessage = {
+      id: Date.now(),
+      type: 'user', 
+      text: currentMessage,
+      timestamp: new Date()
+    }
+    setMessages(prev => [...prev, userMessage])
+
+    // Add typing indicator immediately
+    const typingIndicator = {
+      id: Date.now() + 1,
+      type: 'typing',
+      timestamp: new Date()
+    }
+    setMessages(prev => [...prev, typingIndicator])
+
+    // Send to n8n webhook using the working format
+    try {
+      const response = await fetch('https://abdulmannan34695.app.n8n.cloud/webhook/1203a737-5c17-4c8e-9730-37dc59e8f34e/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Instance-Id': '5c03a30c37683f0cce158d1624c4545432736710298667ae3bf3ee07e668bc12',
+        },
+        body: JSON.stringify({
+          action: 'sendMessage',
+          sessionId: 'web-session-' + Date.now(),
+          chatInput: currentMessage
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Remove typing indicator and add bot response
+        setMessages(prev => {
+          const withoutTyping = prev.filter(msg => msg.type !== 'typing')
+          const botMessage = {
+            id: Date.now() + 2,
+            type: 'bot',
+            text: data.output || data.message || 'Response received successfully.',
+            timestamp: new Date()
+          }
+          return [...withoutTyping, botMessage]
+        })
+
+        // Trigger map/chart updates
+        if (onMessageSent && data.output) {
+          onMessageSent(data.output)
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+    } catch (error) {
+      console.error('Error sending message:', error)
+      
+      // Remove typing indicator and add error message
+      setMessages(prev => {
+        const withoutTyping = prev.filter(msg => msg.type !== 'typing')
+        const errorMessage = {
+          id: Date.now() + 2,
+          type: 'bot',
+          text: 'Sorry, there was an error processing your request. Please try again.',
+          timestamp: new Date()
+        }
+        return [...withoutTyping, errorMessage]
+      })
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: '20px',
+      right: '20px',
+      width: '350px',
+      height: '500px',
+      backgroundColor: 'white',
+      borderRadius: '12px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+      display: 'flex',
+      flexDirection: 'column',
+      zIndex: 1000,
+      border: '1px solid #e5e7eb'
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '16px',
+        borderBottom: '1px solid #e5e7eb',
+        backgroundColor: '#f8fafc',
+        borderRadius: '12px 12px 0 0'
+      }}>
+        <h3 style={{
+          margin: 0,
+          fontSize: '16px',
+          fontWeight: '600',
+          color: '#1f2937'
+        }}>
+          Austin Ride Data Assistant
+        </h3>
+        <p style={{
+          margin: '4px 0 0 0',
+          fontSize: '12px',
+          color: '#6b7280'
+        }}>
+          Ask about locations, trips, and patterns
+        </p>
+      </div>
+
+      {/* Messages */}
+      <div style={{
+        flex: 1,
+        padding: '16px',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        {messages.map(msg => (
+          <div
+            key={msg.id}
+            style={{
+              alignSelf: msg.type === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '80%'
+            }}
+          >
+            {msg.type === 'typing' ? (
+              <div style={{
+                padding: '10px 14px',
+                borderRadius: '16px 16px 16px 4px',
+                backgroundColor: '#f3f4f6',
+                color: '#1f2937',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  gap: '3px'
+                }}>
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#6b7280',
+                    animation: 'pulse 1.4s infinite ease-in-out'
+                  }}></div>
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#6b7280',
+                    animation: 'pulse 1.4s infinite ease-in-out 0.2s'
+                  }}></div>
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#6b7280',
+                    animation: 'pulse 1.4s infinite ease-in-out 0.4s'
+                  }}></div>
+                </div>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                  Thinking...
+                </span>
+              </div>
+            ) : (
+              <>
+                <div style={{
+                  padding: '10px 14px',
+                  borderRadius: msg.type === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                  backgroundColor: msg.type === 'user' ? '#3b82f6' : '#f3f4f6',
+                  color: msg.type === 'user' ? 'white' : '#1f2937',
+                  fontSize: '14px',
+                  lineHeight: '1.4'
+                }}>
+                  {msg.text}
+                </div>
+                <div style={{
+                  fontSize: '10px',
+                  color: '#9ca3af',
+                  marginTop: '4px',
+                  textAlign: msg.type === 'user' ? 'right' : 'left'
+                }}>
+                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+
+      </div>
+
+      {/* Input */}
+      <form onSubmit={handleSubmit} style={{
+        padding: '16px',
+        borderTop: '1px solid #e5e7eb',
+        display: 'flex',
+        gap: '8px'
+      }}>
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Ask about Austin ride data..."
+          disabled={isAnalyzing}
+          style={{
+            flex: 1,
+            padding: '10px 12px',
+            border: '1px solid #d1d5db',
+            borderRadius: '20px',
+            outline: 'none',
+            fontSize: '14px',
+            backgroundColor: isAnalyzing ? '#f9fafb' : 'white'
+          }}
+        />
+        <button
+          type="submit"
+          disabled={!message.trim() || isAnalyzing}
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            border: 'none',
+            backgroundColor: message.trim() && !isAnalyzing ? '#3b82f6' : '#d1d5db',
+            color: 'white',
+            cursor: message.trim() && !isAnalyzing ? 'pointer' : 'not-allowed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px'
+          }}
+        >
+          ➤
+        </button>
+      </form>
+    </div>
+  )
+}
+
+export default SimpleChatInterface
