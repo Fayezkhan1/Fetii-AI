@@ -5,12 +5,6 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "devCommand": "npm run dev",
-  "public": true,
-  "redirects": [
-    {
-      "source": "/(.*)",
-      "destination": "https://fetii-ai-five.vercel.app/:1",
-      "permanent": true
-    }
-  ]
+  "public": true
+
 }
