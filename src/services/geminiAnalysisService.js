@@ -103,7 +103,7 @@ export const analyzeResponseWithGemini = async (responseText) => {
         console.log('🧠 Starting Gemini analysis for:', responseText)
 
         const model = genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.5-flash',
             tools: [{
                 functionDeclarations: [{
                     name: 'geocodeAddress',
