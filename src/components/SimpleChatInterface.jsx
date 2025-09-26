@@ -76,6 +76,7 @@ function SimpleChatInterface({ onMessageSent, isAnalyzing }) {
   ])
 
   const sampleQueries = [
+    "what are the top 5 drop-off locations",
     "Show me the busiest pickup locations",
     "What are the peak hours for rides?",
     
