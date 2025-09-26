@@ -2,6 +2,48 @@ import { useState, useEffect } from 'react'
 
 function SimpleChatInterface({ onMessageSent, isAnalyzing }) {
   
+  // Function to format bot response text for better readability
+  const formatBotResponse = (text) => {
+    // Remove markdown formatting
+    let formatted = text
+      .replace(/\*\*/g, '') // Remove markdown asterisks
+      .replace(/\*/g, '')   // Remove single asterisks
+      .trim()
+    
+    // Check if this looks like a numbered list response
+    if (formatted.includes('1.') && formatted.includes('2.')) {
+      // Split into sentences and rebuild with proper formatting
+      const parts = formatted.split(/(\d+\.\s)/)
+      let result = ''
+      
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i]
+        
+        // If this is a number marker (1., 2., etc.)
+        if (/^\d+\.\s$/.test(part)) {
+          result += '\n\n' + part
+        }
+        // If this is content after a number
+        else if (i > 0 && /^\d+\.\s$/.test(parts[i-1])) {
+          result += part
+        }
+        // First part (before any numbers)
+        else if (i === 0) {
+          result += part
+        }
+        // Other parts
+        else {
+          result += part
+        }
+      }
+      
+      return result.replace(/^\n+/, '').trim()
+    }
+    
+    // For non-list responses, just clean up
+    return formatted
+  }
+  
   // Clean up any old fetch interceptors on mount
   useEffect(() => {
     // Restore original fetch if it was intercepted
@@ -77,10 +119,14 @@ function SimpleChatInterface({ onMessageSent, isAnalyzing }) {
         // Remove typing indicator and add bot response
         setMessages(prev => {
           const withoutTyping = prev.filter(msg => msg.type !== 'typing')
+          
+          // Clean up and format the response text
+          const cleanText = formatBotResponse(data.output || data.message || 'Response received successfully.')
+          
           const botMessage = {
             id: Date.now() + 2,
             type: 'bot',
-            text: data.output || data.message || 'Response received successfully.',
+            text: cleanText,
             timestamp: new Date()
           }
           return [...withoutTyping, botMessage]
@@ -216,7 +262,8 @@ function SimpleChatInterface({ onMessageSent, isAnalyzing }) {
                   backgroundColor: msg.type === 'user' ? '#3b82f6' : '#f3f4f6',
                   color: msg.type === 'user' ? 'white' : '#1f2937',
                   fontSize: '14px',
-                  lineHeight: '1.4'
+                  lineHeight: '1.4',
+                  whiteSpace: 'pre-line' // This preserves line breaks and formatting
                 }}>
                   {msg.text}
                 </div>

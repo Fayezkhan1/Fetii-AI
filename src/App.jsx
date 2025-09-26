@@ -197,19 +197,19 @@ function App() {
             onMarkerFocus={handleMarkerClick}
           />
 
-          {/* Visualization Loading Overlay */}
+          {/* Visualization Loading Overlay - positioned to not cover chat */}
           {isAnalyzing && (
             <div style={{
               position: 'absolute',
               top: 0,
               left: 0,
-              right: 0,
+              right: '390px', // Leave space for chat (350px width + 40px margin)
               bottom: 0,
               backgroundColor: 'rgba(0, 0, 0, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              zIndex: 2000,
+              zIndex: 999, // Lower than chat's z-index of 1000
               backdropFilter: 'blur(2px)'
             }}>
               <div style={{
