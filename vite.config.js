@@ -7,8 +7,14 @@ export default defineConfig({
         port: 3000,
         proxy: {
             '/api': {
-                target: 'http://localhost:8000',
+                target: 'https://fetii-chat.vercel.app/',
                 changeOrigin: true
+            },
+            '/webhook': {
+                target: 'https://fetii.app.n8n.cloud',
+                changeOrigin: true,
+                secure: true,
+                rewrite: (path) => path.replace(/^\/webhook/, '/webhook')
             }
         }
     }
